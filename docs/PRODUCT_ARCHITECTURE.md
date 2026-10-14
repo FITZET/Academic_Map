@@ -98,7 +98,7 @@ Next.js App Router + TypeScript
    └─ 同步任务与日志
 ```
 
-地图采用 React Leaflet 与 OpenStreetMap 底图；生产环境可切换为有 SLA 的 MapTiler、Mapbox 或自托管 MapLibre 瓦片。后台任务可以使用独立 API 服务、BullMQ + Redis 与托管 Cron。附件使用 S3 兼容对象存储，并为私人附件生成短期签名 URL。
+地图采用 React Leaflet，并将 Natural Earth/world-atlas 矢量轮廓直接打包到应用中，避免第三方瓦片在部分网络环境中不可达。未来如需道路、地名等细节，可切换为有 SLA 的 MapTiler、Mapbox 或自托管 MapLibre 瓦片。后台任务可以使用独立 API 服务、BullMQ + Redis 与托管 Cron。附件使用 S3 兼容对象存储，并为私人附件生成短期签名 URL。
 
 ## 5. 项目目录
 

@@ -19,7 +19,7 @@ export function TeacherDetail({ id }: { id: string }) {
     <section className="teacher-hero">
       <span className="avatar hero-avatar">{teacher.initials}</span>
       <div className="teacher-identity"><div className="teacher-title-row"><div><span className="eyebrow">CONFIRMED SCHOLAR</span><h1>{teacher.name}</h1><p>{teacher.englishName}</p></div><span className="confirmed"><ShieldCheck size={15} />已确认</span></div><h2>{teacher.title} · {teacher.department}</h2><p className="institution-line"><MapPin size={16} />{teacher.institution} · {teacher.city}, {teacher.country}</p><div className="chip-row">{teacher.directionIds.map((directionId) => <span className="chip" key={directionId}>{data.directions.find((item) => item.id === directionId)?.name}</span>)}{teacher.tagIds.map((tagId) => { const tag = data.tags.find((item) => item.id === tagId); return tag ? <span className="chip" key={tagId} style={{ color: tag.color, background: tag.background }}>{tag.name}</span> : null; })}</div></div>
-      <div className="teacher-hero-actions"><button className="button ghost" onClick={() => setEditing(true)}><Pencil size={16} />编辑资料</button><button className="button ghost"><RefreshCw size={16} />同步论文</button><Link href={`/interactions?teacher=${teacher.id}`} className="button primary"><HeartHandshake size={17} />我的互动记录</Link></div>
+      <div className="teacher-hero-actions"><button className="button ghost" onClick={() => setEditing(true)}><Pencil size={16} />编辑资料</button><button className="button ghost" disabled title="部署私有后端后启用"><RefreshCw size={16} />同步需后端</button><Link href={`/interactions?teacher=${teacher.id}`} className="button primary"><HeartHandshake size={17} />我的互动记录</Link></div>
     </section>
     <div className="teacher-detail-grid">
       <div className="teacher-detail-main">
@@ -29,7 +29,7 @@ export function TeacherDetail({ id }: { id: string }) {
       <aside className="teacher-detail-side">
         <section className="content-card info-list"><span className="eyebrow">CONTACT</span><h2>联系与主页</h2>{teacher.email && <a href={`mailto:${teacher.email}`}><Mail size={16} /><span><small>邮箱</small>{teacher.email}</span></a>}{teacher.homepage && <a href={teacher.homepage} target="_blank"><ExternalLink size={16} /><span><small>个人主页</small>访问机构页面</span></a>}{teacher.scholarUrl && <a href={teacher.scholarUrl} target="_blank"><BookOpen size={16} /><span><small>Google Scholar</small>打开外部链接</span></a>}</section>
         <section className="content-card identity-list"><span className="eyebrow">IDENTIFIERS</span><h2>学术身份</h2>{teacher.identities.map((identity) => <a href={identity.url} target="_blank" key={identity.source}><span><small>{identity.source}</small><strong>{identity.value}</strong></span><ExternalLink size={15} /></a>)}</section>
-        <section className="content-card sync-card"><div><RefreshCw size={19} /><span><strong>论文同步正常</strong><small>上次：{teacher.lastSynced}</small></span></div><p>下一次自动同步将在明日 03:00 运行。</p></section>
+        <section className="content-card sync-card"><div><RefreshCw size={19} /><span><strong>本地资料模式</strong><small>记录值：{teacher.lastSynced}</small></span></div><p>自动论文同步需要部署私有后端后才会运行。</p></section>
       </aside>
     </div>
   </>;
