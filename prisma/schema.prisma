@@ -1,0 +1,326 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CandidateStatus {
+  PENDING
+  ACCEPTED
+  IGNORED
+  EXCLUDED
+  MERGED
+}
+
+enum DataSource {
+  MANUAL
+  OPENALEX
+  SEMANTIC_SCHOLAR
+  ORCID
+  CROSSREF
+  DBLP
+  IEEE
+}
+
+enum SyncStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+}
+
+model User {
+  id                   String              @id @default(cuid())
+  email                String              @unique
+  name                 String?
+  researchDirections   ResearchDirection[]
+  teachers             Teacher[]
+  tags                 Tag[]
+  interactions         InteractionRecord[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+}
+
+model ResearchDirection {
+  id                   String                     @id @default(cuid())
+  userId               String
+  user                 User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                 String
+  description          String?
+  keywords             String[]
+  excludedKeywords     String[]
+  representativePapers String[]
+  venues               String[]
+  seedTeachers         String[]
+  startYear            Int?
+  endYear              Int?
+  discoveryRules       Json?
+  color                String                     @default("#315E82")
+  teachers             TeacherResearchDirection[]
+  publications         PublicationResearchDirection[]
+  candidates           CandidateTeacher[]
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  @@unique([userId, name])
+}
+
+model Teacher {
+  id                   String                     @id @default(cuid())
+  userId               String
+  user                 User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionId        String?
+  institution          Institution?               @relation(fields: [institutionId], references: [id])
+  locationId           String?
+  location             Location?                  @relation(fields: [locationId], references: [id])
+  name                 String
+  englishName          String?
+  aliases              String[]
+  title                String?
+  department           String?
+  email                String?
+  photoUrl             String?
+  bio                  String?
+  bioSourceUrl         String?
+  bioApproved          Boolean                    @default(false)
+  homepageUrl          String?
+  googleScholarUrl     String?
+  confirmedAt          DateTime?
+  archivedAt           DateTime?
+  lastSyncedAt         DateTime?
+  researchDirections   TeacherResearchDirection[]
+  tags                 TeacherTag[]
+  publications         TeacherPublication[]
+  externalIdentities   ExternalIdentity[]
+  interactions         InteractionRecord[]
+  fieldOverrides       FieldOverride[]
+  syncTasks            SyncTask[]
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  @@index([userId, name])
+}
+
+model TeacherResearchDirection {
+  teacherId            String
+  researchDirectionId  String
+  relevanceScore       Float?
+  teacher              Teacher           @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  researchDirection    ResearchDirection @relation(fields: [researchDirectionId], references: [id], onDelete: Cascade)
+
+  @@id([teacherId, researchDirectionId])
+}
+
+model Institution {
+  id          String    @id @default(cuid())
+  name        String
+  rorId       String?   @unique
+  homepageUrl String?
+  locationId  String?
+  location    Location? @relation(fields: [locationId], references: [id])
+  teachers    Teacher[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Location {
+  id           String        @id @default(cuid())
+  city         String?
+  region       String?
+  country      String
+  countryCode  String
+  continent    String
+  latitude     Float
+  longitude    Float
+  teachers     Teacher[]
+  institutions Institution[]
+}
+
+model Tag {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  color     String
+  teachers  TeacherTag[]
+  createdAt DateTime     @default(now())
+
+  @@unique([userId, name])
+}
+
+model TeacherTag {
+  teacherId String
+  tagId     String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([teacherId, tagId])
+}
+
+model Publication {
+  id                 String                         @id @default(cuid())
+  title              String
+  abstract           String?
+  authorsText        String
+  year               Int
+  publicationDate    DateTime?
+  venue              String?
+  doi                String?                        @unique
+  openAccessUrl      String?
+  citationCount      Int                            @default(0)
+  source             DataSource
+  sourceRecordId     String?
+  firstDiscoveredAt  DateTime                       @default(now())
+  lastUpdatedAt      DateTime                       @updatedAt
+  teachers           TeacherPublication[]
+  researchDirections PublicationResearchDirection[]
+
+  @@index([title, year])
+}
+
+model TeacherPublication {
+  teacherId    String
+  publicationId String
+  teacher      Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  publication  Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  isImportant  Boolean     @default(false)
+  isExcluded   Boolean     @default(false)
+  note         String?
+  confidence   Float?
+
+  @@id([teacherId, publicationId])
+}
+
+model PublicationResearchDirection {
+  publicationId      String
+  researchDirectionId String
+  publication        Publication       @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  researchDirection  ResearchDirection @relation(fields: [researchDirectionId], references: [id], onDelete: Cascade)
+
+  @@id([publicationId, researchDirectionId])
+}
+
+model CandidateTeacher {
+  id                  String          @id @default(cuid())
+  researchDirectionId String
+  researchDirection   ResearchDirection @relation(fields: [researchDirectionId], references: [id], onDelete: Cascade)
+  name                String
+  title               String?
+  institutionName     String?
+  city                String?
+  country             String?
+  photoUrl            String?
+  representativePaper String?
+  relevantPaperCount  Int             @default(0)
+  relevanceScore      Float
+  recommendationReason String
+  inferredRole        String?
+  source              DataSource
+  sourceRecordId      String?
+  ambiguityRisk       String?
+  completenessScore   Float?
+  rawData             Json?
+  status              CandidateStatus @default(PENDING)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([researchDirectionId, status])
+}
+
+model ExternalIdentity {
+  id         String     @id @default(cuid())
+  teacherId  String
+  teacher    Teacher    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  source     DataSource
+  externalId String
+  profileUrl String?
+  verifiedAt DateTime?
+
+  @@unique([source, externalId])
+  @@index([teacherId, source])
+}
+
+model InteractionRecord {
+  id           String       @id @default(cuid())
+  userId       String
+  teacherId    String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teacher      Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  date         DateTime
+  location     String?
+  eventName    String?
+  type         String
+  content      String
+  hobbies      String[]
+  impression   String?
+  followUp     String?
+  dueAt        DateTime?
+  attachments  Attachment[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([userId, teacherId, date])
+}
+
+model Attachment {
+  id                  String             @id @default(cuid())
+  interactionRecordId String
+  interactionRecord   InteractionRecord  @relation(fields: [interactionRecordId], references: [id], onDelete: Cascade)
+  name                String
+  storageKey          String
+  mimeType            String
+  size                Int
+  createdAt           DateTime           @default(now())
+}
+
+model SyncTask {
+  id           String      @id @default(cuid())
+  teacherId    String?
+  teacher      Teacher?    @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  provider     DataSource
+  status       SyncStatus  @default(QUEUED)
+  scheduledFor DateTime
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  attempts     Int         @default(0)
+  logs         SyncLog[]
+  createdAt    DateTime    @default(now())
+}
+
+model SyncLog {
+  id          String     @id @default(cuid())
+  syncTaskId  String
+  syncTask    SyncTask   @relation(fields: [syncTaskId], references: [id], onDelete: Cascade)
+  level       String
+  message     String
+  metadata    Json?
+  createdAt   DateTime   @default(now())
+}
+
+model FieldOverride {
+  id          String    @id @default(cuid())
+  teacherId   String
+  teacher     Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  fieldName   String
+  value       Json
+  locked      Boolean   @default(true)
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([teacherId, fieldName])
+}
+
+model ExclusionRule {
+  id                  String    @id @default(cuid())
+  userId              String
+  researchDirectionId String?
+  ruleType            String
+  value               String
+  reason              String?
+  createdAt           DateTime  @default(now())
+
+  @@index([userId, researchDirectionId])
+}
