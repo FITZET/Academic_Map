@@ -30,6 +30,7 @@ export function Dashboard() {
   const activeDirection = data.directions.find((direction) => direction.id === selectedDirection);
 
   return <>
+    <div className="runtime-banner"><strong>当前运行模式：本机数据</strong><span>地图底图已离线内置；OpenAlex 自动发现为实时数据；老师、标签和互动记录仅保存在当前设备。</span></div>
     <div className="page-heading dashboard-heading">
       <div><span className="eyebrow">PERSONAL RESEARCH INTELLIGENCE</span><h1>{activeDirection?.name ?? "我的学术地图"}</h1><p>{activeDirection?.description ?? "从地理分布出发，追踪你关心的研究者、论文与真实连接。"}</p></div>
       <div className="heading-actions"><button className="button ghost" onClick={() => setAddOpen(true)}><Plus size={17} />新增老师</button><button className="button primary" onClick={() => setDiscoverOpen(true)}><Radar size={17} />自动发现老师</button></div>
@@ -39,7 +40,7 @@ export function Dashboard() {
       <article className="stat-card"><div className="stat-icon blue"><UserCheck size={20} /></div><div><span>已确认老师</span><strong>{data.teachers.length}</strong><small>覆盖 {new Set(data.teachers.map((teacher) => teacher.country)).size} 个国家</small></div><span className="trend">+2 本月</span></article>
       <article className="stat-card"><div className="stat-icon orange"><Sparkles size={20} /></div><div><span>待审核候选</span><strong>{pendingCount}</strong><small>平均匹配度 91%</small></div><Link href="/candidates">去审核 <ArrowRight size={14} /></Link></article>
       <article className="stat-card"><div className="stat-icon green"><BookOpen size={20} /></div><div><span>今日新增论文</span><strong>{publications.filter((paper) => paper.isNew).length}</strong><small>来自 {new Set(publications.filter((paper) => paper.isNew).map((paper) => paper.teacher.id)).size} 位老师</small></div><Link href="/publications">查看动态 <ArrowRight size={14} /></Link></article>
-      <article className="stat-card"><div className="stat-icon violet"><RefreshCw size={20} /></div><div><span>同步健康度</span><strong>98%</strong><small>下次同步 明日 03:00</small></div><span className="healthy">正常</span></article>
+      <article className="stat-card"><div className="stat-icon violet"><RefreshCw size={20} /></div><div><span>云端每日同步</span><strong>未启用</strong><small>需要部署私有后端与数据库</small></div><span className="local-mode">本地</span></article>
     </section>
 
     <div className="map-section-head">
@@ -57,7 +58,7 @@ export function Dashboard() {
 
     <section className="dashboard-lower-grid">
       <article className="content-card recent-papers"><div className="card-heading"><div><span className="eyebrow">LIVE UPDATES</span><h2>最近新增论文</h2></div><Link href="/publications">查看全部 <ArrowRight size={15} /></Link></div>{publications.slice(0, 4).map((paper) => <div className="paper-row" key={paper.id}><div className={paper.isNew ? "paper-date new" : "paper-date"}><strong>{paper.discoveredAt.slice(5)}</strong><span>{paper.isNew ? "NEW" : paper.year}</span></div><div className="paper-main"><strong>{paper.title}</strong><p>{paper.teacher.name} · {paper.venue} · 引用 {paper.citations}</p><div className="chip-row">{paper.directionIds.map((id) => <span className="chip" key={id}>{data.directions.find((item) => item.id === id)?.name}</span>)}</div></div><button className="icon-button"><ArrowRight size={16} /></button></div>)}</article>
-      <article className="content-card activity-card"><div className="card-heading"><div><span className="eyebrow">SYNC OVERVIEW</span><h2>更新摘要</h2></div><button className="icon-button"><RefreshCw size={16} /></button></div><div className="timeline"><div><i className="green" /><span><strong>论文同步完成</strong><small>6 位老师，新增 3 篇论文</small></span><time>03:22</time></div><div><i className="orange" /><span><strong>1 条机构变更待确认</strong><small>自动同步不会覆盖人工信息</small></span><time>03:18</time></div><div><i className="blue" /><span><strong>候选发现任务完成</strong><small>医学图像分割 · 3 位候选</small></span><time>昨天</time></div></div><div className="next-sync"><Clock3 size={17} /><span><strong>下次自动同步</strong><small>2026 年 10 月 15 日 03:00</small></span></div></article>
+      <article className="content-card activity-card"><div className="card-heading"><div><span className="eyebrow">RUNTIME STATUS</span><h2>能力状态</h2></div><RefreshCw size={16} /></div><div className="timeline"><div><i className="green" /><span><strong>离线世界地图</strong><small>无需第三方瓦片服务，国内网络也可显示</small></span><time>可用</time></div><div><i className="blue" /><span><strong>OpenAlex 实时发现</strong><small>点击“自动发现老师”即可实际检索</small></span><time>可用</time></div><div><i className="orange" /><span><strong>跨设备同步与定时任务</strong><small>尚未部署私有后端</small></span><time>未配置</time></div></div><div className="next-sync"><Clock3 size={17} /><span><strong>数据保存位置</strong><small>当前浏览器或 Android App 的本地存储</small></span></div></article>
     </section>
     {addOpen && <AddTeacherModal onClose={() => setAddOpen(false)} />}
     {discoverOpen && <DiscoverModal onClose={() => setDiscoverOpen(false)} />}

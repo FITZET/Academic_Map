@@ -82,7 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {results.teachers.length === 0 && <p className="empty-inline">没有匹配结果，按 Enter 查看完整搜索。</p>}
             </div>}
           </form>
-          <div className="topbar-actions"><span className="sync-status"><i /> 今日 03:22 已同步</span><button className="icon-button" aria-label="标签"><Tags size={18} /></button></div>
+          <div className="topbar-actions"><span className="sync-status"><i /> 本机数据模式</span><button className="icon-button" aria-label="标签"><Tags size={18} /></button></div>
         </header>
         <main className="page-content">{children}</main>
       </div>

@@ -2,9 +2,29 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
-import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaflet";
+import { CircleMarker, ImageOverlay, MapContainer, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
+import { feature } from "topojson-client";
+import { geoMercator, geoPath } from "d3-geo";
+import type { GeoSphere } from "d3-geo";
+import type { GeometryCollection, Topology } from "topojson-specification";
+import type { FeatureCollection, Geometry } from "geojson";
+import worldAtlas from "world-atlas/countries-110m.json";
 import type { ResearchDirection, Tag, Teacher } from "@/lib/types";
+
+const worldCountries = feature(
+  worldAtlas as unknown as Topology,
+  (worldAtlas as unknown as Topology).objects.countries as GeometryCollection,
+) as unknown as FeatureCollection<Geometry>;
+
+const projection = geoMercator()
+  .scale(1000 / (2 * Math.PI))
+  .translate([500, 500])
+  .clipExtent([[0, 0], [1000, 1000]]);
+const countryPath = geoPath(projection)(worldCountries) ?? "";
+const spherePath = geoPath(projection)({ type: "Sphere" } as GeoSphere) ?? "";
+const worldSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><path d="${spherePath}" fill="#dfe9ed"/><path d="${countryPath}" fill="#eef2f1" stroke="#b8c4c9" stroke-width="0.75" vector-effect="non-scaling-stroke"/></svg>`;
+const worldMapUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(worldSvg)}`;
 
 const continentCenters: Record<string, { center: [number, number]; zoom: number }> = {
   全球: { center: [24, 12], zoom: 2 },
@@ -33,8 +53,8 @@ function MapController({ teachers, continent }: { teachers: Teacher[]; continent
 
 export default function MapCanvas({ teachers, directions, tags, continent }: { teachers: Teacher[]; directions: ResearchDirection[]; tags: Tag[]; continent: string }) {
   return (
-    <MapContainer center={[24, 12]} zoom={2} minZoom={2} maxZoom={9} zoomControl={false} className="leaflet-map" worldCopyJump>
-      <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+    <MapContainer center={[24, 12]} zoom={2} minZoom={2} maxZoom={9} zoomControl={false} className="leaflet-map" worldCopyJump maxBounds={[[-85, -190], [85, 190]]}>
+      <ImageOverlay url={worldMapUrl} bounds={[[-85.0511, -180], [85.0511, 180]]} opacity={1} />
       <MapController teachers={teachers} continent={continent} />
       {teachers.map((teacher) => (
         <CircleMarker key={teacher.id} center={[teacher.latitude, teacher.longitude]} radius={9} pathOptions={{ color: "#ffffff", weight: 3, fillColor: "#c94d50", fillOpacity: 1 }}>

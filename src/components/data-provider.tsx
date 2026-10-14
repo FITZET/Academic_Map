@@ -12,6 +12,7 @@ type DataContextValue = {
   updateTeacher: (id: string, updates: Partial<Teacher>, lockFields?: string[]) => void;
   acceptCandidate: (id: string) => void;
   updateCandidateStatus: (id: string, status: CandidateTeacher["status"]) => void;
+  addCandidates: (candidates: CandidateTeacher[]) => void;
   addInteraction: (interaction: Omit<Interaction, "id">) => void;
   addDirection: (direction: Omit<ResearchDirection, "id" | "teacherCount">) => void;
   resetDemo: () => void;
@@ -19,6 +20,17 @@ type DataContextValue = {
 
 const DataContext = createContext<DataContextValue | null>(null);
 const STORAGE_KEY = "academic-atlas-data-v1";
+const countryLocations: Record<string, { continent: string; latitude: number; longitude: number }> = {
+  AU: { continent: "大洋洲", latitude: -25.27, longitude: 133.78 }, CA: { continent: "北美洲", latitude: 56.13, longitude: -106.35 },
+  CH: { continent: "欧洲", latitude: 46.82, longitude: 8.23 }, CN: { continent: "亚洲", latitude: 35.86, longitude: 104.2 },
+  DE: { continent: "欧洲", latitude: 51.17, longitude: 10.45 }, ES: { continent: "欧洲", latitude: 40.46, longitude: -3.75 },
+  FR: { continent: "欧洲", latitude: 46.23, longitude: 2.21 }, GB: { continent: "欧洲", latitude: 55.38, longitude: -3.44 },
+  HK: { continent: "亚洲", latitude: 22.32, longitude: 114.17 }, IN: { continent: "亚洲", latitude: 20.59, longitude: 78.96 },
+  IT: { continent: "欧洲", latitude: 41.87, longitude: 12.57 }, JP: { continent: "亚洲", latitude: 36.2, longitude: 138.25 },
+  KR: { continent: "亚洲", latitude: 35.91, longitude: 127.77 }, NL: { continent: "欧洲", latitude: 52.13, longitude: 5.29 },
+  SE: { continent: "欧洲", latitude: 60.13, longitude: 18.64 }, SG: { continent: "亚洲", latitude: 1.35, longitude: 103.82 },
+  US: { continent: "北美洲", latitude: 37.09, longitude: -95.71 },
+};
 
 export function AcademicMapProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
@@ -54,12 +66,18 @@ export function AcademicMapProvider({ children }: { children: React.ReactNode })
     acceptCandidate: (id) => setData((current) => {
       const candidate = current.candidates.find((item) => item.id === id);
       if (!candidate) return current;
+      const location = countryLocations[candidate.countryCode ?? ""] ?? { continent: "待确认", latitude: 0, longitude: 0 };
       const teacher: Teacher = {
-        id: `teacher-${candidate.id}`, name: candidate.name, englishName: candidate.name, initials: candidate.initials, title: candidate.title, institution: candidate.institution, department: "待补充", city: candidate.city, country: candidate.country, continent: candidate.country === "英国" ? "欧洲" : candidate.country === "巴西" ? "南美洲" : "亚洲", latitude: candidate.country === "英国" ? 51.5072 : candidate.country === "巴西" ? -23.5505 : 12.9716, longitude: candidate.country === "英国" ? -0.1276 : candidate.country === "巴西" ? -46.6333 : 77.5946, bio: "候选老师已加入，请补充并确认个人简介。", bioSource: `${candidate.source} · 待确认`, bioApproved: false, directionIds: [candidate.directionId], tagIds: [], publications: [{ id: `pub-${candidate.id}`, title: candidate.representativePaper, authors: candidate.name, year: 2026, venue: "待确认", citations: 0, source: candidate.source, discoveredAt: "2026-10-14", directionIds: [candidate.directionId] }], identities: [], relevance: candidate.relevance, lastUpdated: "刚刚", lastSynced: "等待首次同步", lockedFields: [],
+        id: `teacher-${candidate.id}`, name: candidate.name, englishName: candidate.name, initials: candidate.initials, title: candidate.title, institution: candidate.institution, department: "待补充", city: candidate.city, country: candidate.country, continent: location.continent, latitude: location.latitude, longitude: location.longitude, bio: "候选老师已加入，请补充并确认个人简介。", bioSource: `${candidate.source} · 待确认`, bioApproved: false, directionIds: [candidate.directionId], tagIds: [], publications: [{ id: `pub-${candidate.id}`, title: candidate.representativePaper, authors: candidate.name, year: new Date().getFullYear(), venue: "待确认", citations: 0, source: candidate.source, discoveredAt: new Date().toISOString().slice(0, 10), directionIds: [candidate.directionId] }], identities: candidate.externalAuthorId ? [{ source: "OpenAlex", value: candidate.externalAuthorId.split("/").pop() ?? candidate.externalAuthorId, url: candidate.externalAuthorId }] : [], relevance: candidate.relevance, lastUpdated: "刚刚", lastSynced: "尚未启用", lockedFields: [],
       };
       return { ...current, teachers: [...current.teachers, teacher], candidates: current.candidates.filter((item) => item.id !== id) };
     }),
     updateCandidateStatus: (id, status) => setData((current) => ({ ...current, candidates: current.candidates.map((candidate) => candidate.id === id ? { ...candidate, status } : candidate) })),
+    addCandidates: (candidates) => setData((current) => {
+      const incomingKeys = new Set(candidates.map((candidate) => candidate.externalAuthorId || candidate.name.toLowerCase()));
+      const retained = current.candidates.filter((candidate) => !incomingKeys.has(candidate.externalAuthorId || candidate.name.toLowerCase()));
+      return { ...current, candidates: [...candidates, ...retained] };
+    }),
     addInteraction: (interaction) => setData((current) => ({ ...current, interactions: [{ ...interaction, id: `interaction-${Date.now().toString(36)}` }, ...current.interactions] })),
     addDirection: (direction) => setData((current) => ({ ...current, directions: [...current.directions, { ...direction, id: `direction-${Date.now().toString(36)}`, teacherCount: 0 }] })),
     resetDemo: () => setData(initialData),

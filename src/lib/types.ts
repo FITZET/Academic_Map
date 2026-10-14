@@ -78,6 +78,8 @@ export type CandidateTeacher = {
   completeness: number;
   status: "pending" | "ignored" | "excluded";
   directionId: string;
+  externalAuthorId?: string;
+  countryCode?: string;
 };
 
 export type Interaction = {
