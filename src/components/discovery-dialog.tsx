@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, KeyRound, Search, X } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { Clipboard } from "@capacitor/clipboard";
-import { ARK_KEY_STORAGE, ARK_MODEL_STORAGE, DEFAULT_ARK_MODEL, LEGACY_DEFAULT_ARK_MODEL, discoverScholars, normalizeArkKey, testArkConnection } from "@/lib/doubao";
+import { ARK_KEY_STORAGE, ARK_MODEL_STORAGE, ARK_SEARCH_SOURCE_STORAGE, DEFAULT_ARK_MODEL, LEGACY_DEFAULT_ARK_MODEL, discoverScholars, normalizeArkKey, testArkConnection, type ArkSearchSource } from "@/lib/doubao";
 import { useAcademicData } from "./data-provider";
 
 export function DiscoveryDialog({ directionId, onClose }: { directionId: string; onClose: () => void }) {
@@ -13,6 +13,7 @@ export function DiscoveryDialog({ directionId, onClose }: { directionId: string;
   const [selectedId, setSelectedId] = useState(directionId === "all" ? data.directions[0]?.id ?? "" : directionId);
   const [key, setKey] = useState("");
   const [model, setModel] = useState(DEFAULT_ARK_MODEL);
+  const [searchSource, setSearchSource] = useState<ArkSearchSource>("doubao");
   const [showKey, setShowKey] = useState(false);
   const [configure, setConfigure] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -22,6 +23,7 @@ export function DiscoveryDialog({ directionId, onClose }: { directionId: string;
 
   useEffect(() => {
     setKey(window.localStorage.getItem(ARK_KEY_STORAGE) ?? "");
+    setSearchSource(window.localStorage.getItem(ARK_SEARCH_SOURCE_STORAGE) === "plugin" ? "plugin" : "doubao");
     const savedModel = window.localStorage.getItem(ARK_MODEL_STORAGE);
     if (savedModel === LEGACY_DEFAULT_ARK_MODEL) {
       window.localStorage.setItem(ARK_MODEL_STORAGE, DEFAULT_ARK_MODEL);
@@ -36,6 +38,7 @@ export function DiscoveryDialog({ directionId, onClose }: { directionId: string;
     if (cleanKey) window.localStorage.setItem(ARK_KEY_STORAGE, cleanKey);
     else window.localStorage.removeItem(ARK_KEY_STORAGE);
     window.localStorage.setItem(ARK_MODEL_STORAGE, model.trim() || DEFAULT_ARK_MODEL);
+    window.localStorage.setItem(ARK_SEARCH_SOURCE_STORAGE, searchSource);
     setConfigure(false);
     setMessage(cleanKey ? "API 配置已保存在本机。" : "API Key 已从本机删除。");
   };
@@ -53,7 +56,7 @@ export function DiscoveryDialog({ directionId, onClose }: { directionId: string;
   const testConnection = async () => {
     if (!normalizeArkKey(key)) { setMessage("请先输入 API Key。"); return; }
     setTesting(true); setMessage("");
-    try { await testArkConnection(key, model); setMessage("模型连接成功。联网搜索需要单独开通豆包搜索 Custom 版，点击“开始搜索”可继续验证。"); }
+    try { await testArkConnection(key, model); setMessage("模型连接成功。此测试不包含联网搜索；请点击“开始搜索”验证所选搜索组件。"); }
     catch (error) { setMessage(error instanceof Error ? error.message : "测试连接失败。"); }
     finally { setTesting(false); }
   };
@@ -64,7 +67,7 @@ export function DiscoveryDialog({ directionId, onClose }: { directionId: string;
     if (!normalizeArkKey(key)) { setConfigure(true); setMessage("请先输入豆包方舟 API Key。"); return; }
     setBusy(true); setMessage(""); setFound(false);
     try {
-      const candidates = await discoverScholars(direction, key, model);
+      const candidates = await discoverScholars(direction, key, model, searchSource);
       const added = addCandidates(candidates);
       setFound(added > 0);
       setMessage(added ? `找到 ${candidates.length} 位有来源的学者，其中 ${added} 位进入待审核区。` : "未找到新的、可核对来源的学者。请更换关键词或稍后重试。");
@@ -77,6 +80,8 @@ export function DiscoveryDialog({ directionId, onClose }: { directionId: string;
       <div className="simple-modal-head"><div><span className="eyebrow">DOUBAO WEB SEARCH</span><h2 id="discovery-title">发现相关学者</h2></div><button className="icon-button" onClick={onClose} aria-label="关闭"><X size={17} /></button></div>
       <p className="simple-muted">只发送研究方向和关键词给豆包，不发送标签或私人互动记录。搜索结果不会自动上图。</p>
       <label className="simple-field">研究领域<select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>{data.directions.map((direction) => <option key={direction.id} value={direction.id}>{direction.name}</option>)}</select></label>
+      <label className="simple-field">联网搜索组件<select value={searchSource} onChange={(event) => { const source = event.target.value as ArkSearchSource; setSearchSource(source); window.localStorage.setItem(ARK_SEARCH_SOURCE_STORAGE, source); setMessage(""); }}><option value="doubao">豆包搜索 Custom 版</option><option value="plugin">联网内容插件</option></select></label>
+      <small className="simple-muted">两个组件需分别在方舟控制台开通，且可能分别计费。若只开通了“联网内容插件”，请选择它；切换不会自动申请开通权限。</small>
       <button className="inline-action" onClick={() => setConfigure((value) => !value)}><KeyRound size={15} />{key ? "修改豆包 API 配置" : "配置豆包 API Key"}</button>
       {configure && <div className="api-config">
         <label className="simple-field">方舟 API Key<div className="secret-input"><input type="text" inputMode="text" autoComplete="off" autoCapitalize="none" spellCheck={false} className={showKey ? "" : "masked-key"} value={key} onChange={(event) => setKey(event.target.value)} placeholder="长按粘贴或点右侧按钮" aria-label="方舟 API Key" /><button type="button" onClick={pasteKey}>粘贴</button><button type="button" onClick={() => setShowKey((value) => !value)}>{showKey ? "隐藏" : "显示"}</button></div></label>
