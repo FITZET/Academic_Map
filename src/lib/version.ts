@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.3.1";
+export const APP_VERSION = "0.3.2";
 export const GITHUB_REPOSITORY = "FITZET/Academic_Map";
 export const RELEASES_URL = `https://github.com/${GITHUB_REPOSITORY}/releases`;
 

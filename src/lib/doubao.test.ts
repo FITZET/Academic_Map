@@ -60,6 +60,25 @@ describe("豆包候选学者", () => {
     expect(normalizeArkKey("Authorization: Bearer local-test-key")).toBe("local-test-key");
   });
 
+  it("联网内容插件使用官方独立配置，不混用 Custom 的 sources", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => webResult });
+    vi.stubGlobal("fetch", request);
+    await discoverScholars(direction, "local-test-key", "doubao-seed-evolving", "plugin");
+    const body = JSON.parse(request.mock.calls[0][1].body);
+    expect(body.tools).toEqual([{ type: "web_search", max_keyword: 2 }]);
+    expect(body.tools[0].sources).toBeUndefined();
+  });
+
+  it("搜索被拒绝时显示 HTTP 状态、请求 ID 和方舟原始说明，但隐藏 Key", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      status: 403,
+      headers: { get: (name: string) => name === "x-request-id" ? "req-123" : null },
+      json: async () => ({ error: { code: "AccessDenied", message: "Access denied for web search; token local-test-key" } }),
+    }));
+    await expect(discoverScholars(direction, "local-test-key")).rejects.toThrow(/请求 ID：req-123/);
+    await expect(discoverScholars(direction, "local-test-key")).rejects.toThrow(/\[已隐藏\]/);
+  });
+
   it("Android 使用原生网络请求而不是 WebView fetch", async () => {
     vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
     const native = vi.spyOn(CapacitorHttp, "post").mockResolvedValue({ status: 200, data: webResult, headers: {}, url: "https://ark.cn-beijing.volces.com/api/v3/responses" });
@@ -70,6 +89,7 @@ describe("豆包候选学者", () => {
 
   it("区分搜索服务未开通与模型权限错误", () => {
     expect(explainArkError(403, "AccessDenied", true)).toContain("豆包搜索 Custom 版");
+    expect(explainArkError(403, "AccessDenied", true, "plugin")).toContain("联网内容插件");
     expect(explainArkError(403, "AccessDenied")).toContain("模型或资源");
     expect(explainArkError(404, "ModelNotOpen")).toContain("模型 ID");
   });
