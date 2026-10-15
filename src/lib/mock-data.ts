@@ -48,11 +48,7 @@ export const initialData: AppData = {
       ]
     },
   ],
-  candidates: [
-    { id: "c1", name: "Nora Haddad", initials: "NH", title: "Assistant Professor", institution: "University College London", city: "London", country: "英国", representativePaper: "Promptable Segmentation for Rare Pathologies", relevantPaperCount: 12, relevance: 94, reason: "近三年 12 篇相关论文，其中 5 篇发表于 MICCAI", inferredRole: "教师 · 高置信度", source: "OpenAlex + ORCID", ambiguity: "低", completeness: 91, status: "pending", directionId: "medical-imaging" },
-    { id: "c2", name: "Carlos Mendes", initials: "CM", title: "Senior Researcher", institution: "University of São Paulo", city: "São Paulo", country: "巴西", representativePaper: "Self-supervised Volumetric Representation Learning", relevantPaperCount: 8, relevance: 88, reason: "与种子论文共享高频引用网络", inferredRole: "研究员 · 中置信度", source: "Semantic Scholar", ambiguity: "中", completeness: 76, status: "pending", directionId: "medical-imaging" },
-    { id: "c3", name: "Priya Nair", initials: "PN", title: "Associate Professor", institution: "Indian Institute of Science", city: "Bengaluru", country: "印度", representativePaper: "Multimodal Reasoning for Low-resource Clinics", relevantPaperCount: 15, relevance: 91, reason: "主题高度匹配且持续发表，机构信息已交叉验证", inferredRole: "教师 · 高置信度", source: "OpenAlex + Semantic Scholar", ambiguity: "低", completeness: 94, status: "pending", directionId: "multimodal" },
-  ],
+  candidates: [],
   interactions: [
     { id: "i1", teacherId: "elena-rossi", date: "2026-07-18", location: "Vienna", eventName: "ECCV Workshop", type: "线下交流", content: "讨论了跨实验室共享机器人数据集的可能性。她对小规模但高质量的触觉数据很感兴趣。", hobbies: ["徒步", "胶片摄影"], impression: "表达直接、重视可复现实验。", followUp: "11 月发送数据协议草案。" },
   ],

@@ -80,6 +80,12 @@ export type CandidateTeacher = {
   directionId: string;
   externalAuthorId?: string;
   countryCode?: string;
+  continent?: string;
+  latitude?: number;
+  longitude?: number;
+  profileUrl?: string;
+  evidenceUrl?: string;
+  searchedAt?: string;
 };
 
 export type Interaction = {
