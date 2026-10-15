@@ -60,11 +60,10 @@ export default function MapCanvas({ teachers, directions, tags, continent }: { t
         <CircleMarker key={teacher.id} center={[teacher.latitude, teacher.longitude]} radius={9} pathOptions={{ color: "#ffffff", weight: 3, fillColor: "#c94d50", fillOpacity: 1 }}>
           <Popup minWidth={280} offset={[0, -4]}>
             <div className="map-popup">
-              <div className="map-popup-person"><span className="avatar">{teacher.initials}</span><div><strong>{teacher.name}</strong><small>{teacher.title}</small></div><em>{teacher.relevance}% 匹配</em></div>
+              <div className="map-popup-person"><span className="avatar">{teacher.initials}</span><div><strong>{teacher.name}</strong><small>{teacher.title}</small></div></div>
               <p className="map-popup-institution">{teacher.institution}<br />{teacher.city} · {teacher.country}</p>
               <div className="chip-row">{teacher.directionIds.slice(0, 2).map((id) => <span className="chip" key={id}>{directions.find((item) => item.id === id)?.name}</span>)}{teacher.tagIds.slice(0, 1).map((id) => { const tag = tags.find((item) => item.id === id); return tag ? <span className="chip" key={id} style={{ color: tag.color, background: tag.background }}>{tag.name}</span> : null; })}</div>
-              <div className="map-popup-paper"><span>最近论文</span><strong>{teacher.publications[0]?.title ?? "暂无论文"}</strong></div>
-              <Link href={`/teacher?id=${teacher.id}`} className="button primary full">查看老师档案 →</Link>
+              <Link href={`/teacher?id=${teacher.id}`} className="button primary full">查看标签与互动记录 →</Link>
             </div>
           </Popup>
         </CircleMarker>
