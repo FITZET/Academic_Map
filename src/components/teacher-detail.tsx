@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, CalendarDays, MapPin, Plus, Tag as TagIcon } from "lucide-react";
 import { useAcademicData } from "./data-provider";
+import { isDemoTeacher } from "@/lib/demo";
+import { safeWebUrl } from "@/lib/doubao";
 
 export function TeacherDetail({ id }: { id: string }) {
   const { data, addInteraction, createTag, toggleTeacherTag } = useAcademicData();
@@ -29,7 +31,7 @@ export function TeacherDetail({ id }: { id: string }) {
     <Link href="/" className="back-link"><ArrowLeft size={16} />返回地图</Link>
     <section className="minimal-profile">
       <span className="avatar profile-avatar">{teacher.initials}</span>
-      <div><h1>{teacher.name}</h1><p>{teacher.title} · {teacher.institution}</p><small><MapPin size={14} />{teacher.city} · {teacher.country}</small></div>
+      <div><h1>{teacher.name}{isDemoTeacher(teacher.id) && <span className="demo-label">虚构示例</span>}</h1><p>{teacher.title} · {teacher.institution}</p><small><MapPin size={14} />{teacher.city} · {teacher.country}</small>{!isDemoTeacher(teacher.id) && safeWebUrl(teacher.homepage) && <a className="profile-source" href={safeWebUrl(teacher.homepage)} target="_blank" rel="noreferrer">查看已审核的人物来源 ↗</a>}</div>
     </section>
     <div className="minimal-detail-grid">
       <section className="minimal-section">
