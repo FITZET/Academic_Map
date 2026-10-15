@@ -1,15 +1,63 @@
 import type { CandidateTeacher, ResearchDirection } from "./types";
+import { Capacitor, CapacitorHttp } from "@capacitor/core";
 
 export const ARK_ENDPOINT = "https://ark.cn-beijing.volces.com/api/v3/responses";
-export const DEFAULT_ARK_MODEL = "doubao-seed-2-1-pro-260915";
+export const DEFAULT_ARK_MODEL = "doubao-seed-evolving";
+export const LEGACY_DEFAULT_ARK_MODEL = "doubao-seed-2-1-pro-260915";
 export const ARK_KEY_STORAGE = "academic-map-ark-key-v1";
 export const ARK_MODEL_STORAGE = "academic-map-ark-model-v1";
 
-type ArkResponse = { output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>; error?: { message?: string } };
+type ArkResponse = { status?: string; output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>; error?: { code?: string; message?: string } };
 type ScholarResult = { name?: unknown; title?: unknown; institution?: unknown; city?: unknown; country?: unknown; continent?: unknown; latitude?: unknown; longitude?: unknown; profile_url?: unknown; evidence_url?: unknown; reason?: unknown };
 
 const string = (value: unknown) => typeof value === "string" ? value.trim() : "";
 const coordinate = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : undefined;
+
+export function normalizeArkKey(value: string) {
+  return value.trim().replace(/^(?:Authorization\s*:\s*)?Bearer\s+/i, "").replace(/^['"]|['"]$/g, "").trim();
+}
+
+export function explainArkError(status: number, code = "", webSearch = false) {
+  if (status === 401) return "API Key 无效或不适用于方舟 Responses API。请检查 Key 是否完整。";
+  if (code.includes("DoubaoSearchFreeQuotaExceeded")) return "豆包搜索免费额度已用完，请在方舟控制台查看搜索额度。";
+  if (status === 403 && (code === "AccessDenied" || code.includes("WebSearch"))) return webSearch ? "模型连接可能正常，但尚未开通豆包搜索 Custom 版。请到方舟控制台的应用组件库开通。" : "当前 Key 无权访问所选模型或资源，请检查方舟控制台的权限配置。";
+  if (status === 403 && code.includes("ServiceNotOpen")) return "此账号尚未开通所选模型或搜索服务，请到方舟控制台核对。";
+  if (status === 403) return webSearch ? "联网搜索被拒绝。请检查豆包搜索 Custom 版是否开通、额度是否足够。" : "当前 Key 无权访问所选模型，请检查方舟控制台权限。";
+  if (status === 404 || code.includes("ModelNotOpen")) return "模型 ID 不存在或当前 Key 无权限。请确认配置为你已开通的模型，例如 doubao-seed-evolving。";
+  if (status === 429) return "请求过于频繁或额度不足，请稍后重试并检查方舟额度。";
+  if (status === 400) return "请求参数不被当前模型或服务接受。请检查模型 ID 和联网搜索权限。";
+  return `豆包请求失败（HTTP ${status}${code ? `，${code}` : ""}）。`;
+}
+
+async function postArk(apiKey: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<ArkResponse> {
+  const key = normalizeArkKey(apiKey);
+  if (!key) throw new Error("请先配置豆包方舟 API Key。");
+  let status: number;
+  let data: ArkResponse;
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const result = await CapacitorHttp.post({ url: ARK_ENDPOINT, headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, data: body, connectTimeout: 15000, readTimeout: 120000, responseType: "json" });
+      status = result.status;
+      data = typeof result.data === "string" ? JSON.parse(result.data) as ArkResponse : result.data as ArkResponse;
+    } else {
+      const response = await fetch(ARK_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: JSON.stringify(body), signal });
+      status = response.status;
+      data = await response.json() as ArkResponse;
+    }
+  } catch (error) {
+    if (signal?.aborted) throw new Error("请求已取消。");
+    throw new Error(`连接豆包失败。请检查手机网络；若持续出现，请尝试“测试连接”。${error instanceof SyntaxError ? "服务器返回内容无法读取。" : ""}`);
+  }
+  if (!data || status < 200 || status >= 300 || data.error) {
+    const code = data?.error?.code ?? "";
+    throw new Error(`${explainArkError(status, code, Array.isArray(body.tools))}${code ? ` 错误码：${code}` : ""}`);
+  }
+  return data;
+}
+
+export async function testArkConnection(apiKey: string, model = DEFAULT_ARK_MODEL): Promise<void> {
+  await postArk(apiKey, { model: model.trim() || DEFAULT_ARK_MODEL, stream: false, store: false, input: [{ role: "user", content: [{ type: "input_text", text: "请只回复 OK" }] }] });
+}
 
 export function safeWebUrl(value: unknown): string | undefined {
   const raw = string(value);
@@ -60,13 +108,7 @@ export function parseScholarResponse(response: ArkResponse, directionId: string)
 }
 
 export async function discoverScholars(direction: ResearchDirection, apiKey: string, model = DEFAULT_ARK_MODEL, signal?: AbortSignal): Promise<CandidateTeacher[]> {
-  if (!apiKey.trim()) throw new Error("请先配置豆包方舟 API Key。");
   const prompt = `请先使用联网搜索，寻找“${direction.name}”研究方向的真实高校教师或科研机构研究员。辅助关键词：${direction.keywords.join("、") || "无"}。优先搜索中国可访问的高校、科研机构官方主页以及中文学术平台。只返回能找到可核对的 HTTPS 人物主页或机构介绍页的学者；不要编造人物、机构、URL 或坐标；学生和无法确认身份的人不要列入。最多 8 人。只输出 JSON 对象，格式为 {"scholars":[{"name":"姓名","title":"职称","institution":"机构","city":"城市","country":"国家","continent":"亚洲/欧洲/北美洲/南美洲/非洲/大洋洲","latitude":null,"longitude":null,"profile_url":"https://...","evidence_url":"https://...","reason":"与领域相关的简短理由"}]}。如果找不到证据则返回 {"scholars":[]}。经纬度不确定时用 null。`;
-  let response: Response;
-  try {
-    response = await fetch(ARK_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` }, body: JSON.stringify({ model: model.trim() || DEFAULT_ARK_MODEL, stream: false, store: false, tools: [{ type: "web_search", sources: ["doubao"] }], input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }] }), signal });
-  } catch { throw new Error("连接豆包失败。请检查网络和 API 服务可用性。"); }
-  const result = await response.json() as ArkResponse;
-  if (!response.ok) throw new Error(result.error?.message || `豆包请求失败（HTTP ${response.status}）。`);
+  const result = await postArk(apiKey, { model: model.trim() || DEFAULT_ARK_MODEL, stream: false, store: false, tools: [{ type: "web_search", sources: ["doubao"] }], tool_choice: { type: "web_search" }, input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }] }, signal);
   return parseScholarResponse(result, direction.id);
 }

@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { discoverScholars, parseScholarResponse, safeWebUrl } from "./doubao";
+import { Capacitor, CapacitorHttp } from "@capacitor/core";
+import { discoverScholars, explainArkError, normalizeArkKey, parseScholarResponse, safeWebUrl, testArkConnection } from "./doubao";
 import type { ResearchDirection } from "./types";
+
+vi.mock("@capacitor/core", () => ({ Capacitor: { isNativePlatform: vi.fn(() => false) }, CapacitorHttp: { post: vi.fn() } }));
 
 const direction: ResearchDirection = { id: "robotics", name: "机器人", keywords: ["embodied AI"], description: "", color: "#315e82", teacherCount: 0 };
 const webResult = { output: [
@@ -12,7 +15,7 @@ const webResult = { output: [
 ] };
 
 describe("豆包候选学者", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
   it("只接收联网搜索且有可核对链接的结果，并补足已知城市坐标", () => {
     const candidates = parseScholarResponse(webResult, direction.id);
@@ -39,8 +42,35 @@ describe("豆包候选学者", () => {
     expect(url).toBe("https://ark.cn-beijing.volces.com/api/v3/responses");
     expect(options.headers.Authorization).toBe("Bearer local-test-key");
     expect(body.tools).toEqual([{ type: "web_search", sources: ["doubao"] }]);
+    expect(body.tool_choice).toEqual({ type: "web_search" });
+    expect(body.model).toBe("doubao-seed-evolving");
     expect(body.store).toBe(false);
     expect(options.body).toContain("机器人");
     expect(options.body).not.toContain("互动记录");
+  });
+
+  it("基础连接测试沿用官方 Responses 格式，但不要求搜索服务", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ status: "completed", output: [] }) });
+    vi.stubGlobal("fetch", request);
+    await testArkConnection("Bearer local-test-key");
+    const body = JSON.parse(request.mock.calls[0][1].body);
+    expect(body.model).toBe("doubao-seed-evolving");
+    expect(body.tools).toBeUndefined();
+    expect(body.input[0].content[0].type).toBe("input_text");
+    expect(normalizeArkKey("Authorization: Bearer local-test-key")).toBe("local-test-key");
+  });
+
+  it("Android 使用原生网络请求而不是 WebView fetch", async () => {
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    const native = vi.spyOn(CapacitorHttp, "post").mockResolvedValue({ status: 200, data: webResult, headers: {}, url: "https://ark.cn-beijing.volces.com/api/v3/responses" });
+    vi.stubGlobal("fetch", vi.fn(() => { throw new Error("WebView fetch should not run"); }));
+    await discoverScholars(direction, "local-test-key");
+    expect(native).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ model: "doubao-seed-evolving" }) }));
+  });
+
+  it("区分搜索服务未开通与模型权限错误", () => {
+    expect(explainArkError(403, "AccessDenied", true)).toContain("豆包搜索 Custom 版");
+    expect(explainArkError(403, "AccessDenied")).toContain("模型或资源");
+    expect(explainArkError(404, "ModelNotOpen")).toContain("模型 ID");
   });
 });
