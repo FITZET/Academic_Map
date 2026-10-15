@@ -1,77 +1,38 @@
-# Academic Atlas（个人学术地图）
+# Academic Map
 
-一个以地图为入口的个人学术情报与人脉管理 Web 应用：管理研究方向、老师、论文动态、自动发现候选以及私密互动记录。
+一个极简的本地个人学术地图：在世界地图上按研究方向查看研究者分布；点进研究者后，记录标签和私人与其的互动。
 
-## 当前可运行功能
+## 当前功能
 
-- 世界地图与大洲切换、研究方向和标签筛选
-- 老师资料库、详情页、外部学术身份与论文列表
-- 全局搜索（姓名、机构、地区、标签、研究方向与论文）
-- 候选老师审核：加入地图、暂时忽略、排除与批量操作
-- 手动新增老师与人工字段锁定
-- 研究方向创建与独立地图入口
-- 私人互动时间线和本地记录
-- 论文动态、数据来源和同步状态展示
-- 深色模式、响应式桌面/平板布局
-- OpenAlex Provider、模拟 Provider、发现 API 和定时同步 API 骨架
-- PostgreSQL/Prisma 完整数据模型
-- JSON 本地备份导出
+- 离线内置世界地图与红色研究者标记
+- 按研究方向、标签和大洲筛选地图
+- 研究者详情页：添加、移除和新建标签
+- 私人互动记录：日期、地点、场景、记录、爱好和后续事项
+- 所有数据仅保存到当前浏览器或 Android App 的本地存储
 
-当前个人版使用浏览器 `localStorage` 保存人工数据，并提供一组明确标识的初始示例数据。世界底图作为离线矢量资源随应用打包，不依赖外部瓦片服务；“自动发现老师”会从浏览器实时查询 OpenAlex，并将结果写入候选审核区。
+论文、自动发现、候选审核、云端同步、搜索、设置和资料库页面已从界面中移除。
 
 ## 本地启动
-
-要求：Node.js 20.9+（已在 Node.js 22 下验证）。
 
 ```bash
 npm install
 npm run dev
 ```
 
-打开 `http://localhost:3000`。公开网页版发布后位于 `https://fitzet.github.io/Academic_Map/`。
+打开 `http://localhost:3000`。
 
-生产构建：
+运行验证：
 
 ```bash
 npm test
-npm run build
-npm start
+npm run build:pages
 ```
-
-## 环境变量
-
-复制 `.env.example` 为 `.env.local`，按需填写：
-
-```bash
-DATABASE_URL="postgresql://academic_map:password@localhost:5432/academic_map?schema=public"
-OPENALEX_API_KEY=""
-SEMANTIC_SCHOLAR_API_KEY=""
-ORCID_CLIENT_ID=""
-ORCID_CLIENT_SECRET=""
-IEEE_API_KEY=""
-CRON_SECRET="change-me"
-```
-
-OpenAlex 基础查询可以在无密钥时运行；正式部署建议配置密钥并设置请求额度与缓存。Google Scholar 仅作为老师档案中的外部链接，不作为自动抓取来源。
-
-## 数据库
-
-Prisma 模型位于 `prisma/schema.prisma`，包含需求中的全部核心实体。配置 PostgreSQL 后运行：
-
-```bash
-npm run prisma:generate
-npm run prisma:migrate -- --name init
-```
-
-当前界面使用本地演示仓库，便于零配置验收。接入生产数据库时，将 `AcademicMapProvider` 的本地操作替换为对应 API/Server Action；页面组件与领域规则无需重写。
 
 ## Android APK
 
-应用使用 Capacitor 封装，Android 工程位于 `android/`。GitHub tag `v*` 会触发 `.github/workflows/android-release.yml`：构建签名版 APK、创建 GitHub Release 并上传 APK。
+GitHub tag `v*` 会构建签名 APK 并发布到 GitHub Releases。应用每 24 小时检查一次 Release，以提示可用更新；安装更新仍需 Android 用户确认。
 
-手机 App 每 24 小时访问一次 GitHub Releases API。检测到比内置版本号更高的 Release 后，会显示更新提示并打开对应 APK 下载地址；安装更新仍需用户确认，这是 Android 的安全要求。
-
-本机 Android SDK 位于 `E:\APP_Design`。如需本地构建，还需安装 JDK 21，然后执行：
+本机 Android SDK 已配置在 `E:\APP_Design`。本地构建还需要 JDK 21：
 
 ```bash
 npm run build:mobile
@@ -79,28 +40,3 @@ npx cap sync android
 cd android
 gradlew assembleRelease
 ```
-
-发布说明见 [`docs/RELEASING.md`](docs/RELEASING.md)。
-
-## Provider
-
-Provider 接口位于 `src/lib/providers/types.ts`。当前包含 OpenAlex 和 Mock 实现，Semantic Scholar、ORCID、Crossref、DBLP、IEEE 可按相同接口继续扩展。GitHub Pages 和 APK 是纯客户端静态版本，因此正式的自动抓取与定时任务需要部署独立后端服务，避免在客户端暴露 API 密钥。
-
-## 数据保护规则
-
-- 自动发现结果只能进入候选区，不能直接进入正式地图。
-- `FieldOverride` 与前端 `lockedFields` 记录人工锁定字段。
-- 自动更新合并逻辑不会覆盖人工锁定字段。
-- 私人互动记录不进入 Provider 请求。
-- 论文优先按 DOI 去重，无 DOI 时按标准化标题和年份去重。
-- 自动字段应保存来源与最后更新时间。
-
-## 测试
-
-```bash
-npm test
-```
-
-测试覆盖论文去重、人工字段优先级，以及跨老师/机构/标签/论文搜索。
-
-详细的信息架构、数据库设计、用户流程和技术架构见 [`docs/PRODUCT_ARCHITECTURE.md`](docs/PRODUCT_ARCHITECTURE.md)。

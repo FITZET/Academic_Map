@@ -1,66 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { ArrowRight, BookOpen, ChevronDown, Clock3, Filter, Plus, Radar, RefreshCw, Sparkles, UserCheck } from "lucide-react";
+import { Filter } from "lucide-react";
 import { useAcademicData } from "./data-provider";
 import { MapPanel } from "./map-panel";
-import { AddTeacherModal } from "./add-teacher-modal";
-import { DiscoverModal } from "./discover-modal";
 
 export function Dashboard() {
   const { data } = useAcademicData();
-  const searchParams = useSearchParams();
-  const [selectedDirection, setSelectedDirection] = useState(searchParams.get("direction") ?? "all");
+  const [directionId, setDirectionId] = useState("all");
+  const [tagId, setTagId] = useState("all");
   const [continent, setContinent] = useState("全球");
-  const [tag, setTag] = useState("all");
-  const [addOpen, setAddOpen] = useState(false);
-  const [discoverOpen, setDiscoverOpen] = useState(false);
-
-  const visibleTeachers = useMemo(() => data.teachers.filter((teacher) => {
-    const directionMatch = selectedDirection === "all" || teacher.directionIds.includes(selectedDirection);
-    const continentMatch = continent === "全球" || teacher.continent === continent;
-    const tagMatch = tag === "all" || teacher.tagIds.includes(tag);
-    return directionMatch && continentMatch && tagMatch;
-  }), [continent, data.teachers, selectedDirection, tag]);
-
-  const publications = data.teachers.flatMap((teacher) => teacher.publications.map((publication) => ({ ...publication, teacher }))).sort((a, b) => b.discoveredAt.localeCompare(a.discoveredAt));
-  const pendingCount = data.candidates.filter((candidate) => candidate.status === "pending").length;
-  const activeDirection = data.directions.find((direction) => direction.id === selectedDirection);
+  const researchers = useMemo(() => data.teachers.filter((teacher) =>
+    (directionId === "all" || teacher.directionIds.includes(directionId)) &&
+    (tagId === "all" || teacher.tagIds.includes(tagId)) &&
+    (continent === "全球" || teacher.continent === continent)), [continent, data.teachers, directionId, tagId]);
 
   return <>
-    <div className="runtime-banner"><strong>当前运行模式：本机数据</strong><span>地图底图已离线内置；OpenAlex 自动发现为实时数据；老师、标签和互动记录仅保存在当前设备。</span></div>
-    <div className="page-heading dashboard-heading">
-      <div><span className="eyebrow">PERSONAL RESEARCH INTELLIGENCE</span><h1>{activeDirection?.name ?? "我的学术地图"}</h1><p>{activeDirection?.description ?? "从地理分布出发，追踪你关心的研究者、论文与真实连接。"}</p></div>
-      <div className="heading-actions"><button className="button ghost" onClick={() => setAddOpen(true)}><Plus size={17} />新增老师</button><button className="button primary" onClick={() => setDiscoverOpen(true)}><Radar size={17} />自动发现老师</button></div>
-    </div>
-
-    <section className="stat-grid">
-      <article className="stat-card"><div className="stat-icon blue"><UserCheck size={20} /></div><div><span>已确认老师</span><strong>{data.teachers.length}</strong><small>覆盖 {new Set(data.teachers.map((teacher) => teacher.country)).size} 个国家</small></div><span className="trend">+2 本月</span></article>
-      <article className="stat-card"><div className="stat-icon orange"><Sparkles size={20} /></div><div><span>待审核候选</span><strong>{pendingCount}</strong><small>平均匹配度 91%</small></div><Link href="/candidates">去审核 <ArrowRight size={14} /></Link></article>
-      <article className="stat-card"><div className="stat-icon green"><BookOpen size={20} /></div><div><span>今日新增论文</span><strong>{publications.filter((paper) => paper.isNew).length}</strong><small>来自 {new Set(publications.filter((paper) => paper.isNew).map((paper) => paper.teacher.id)).size} 位老师</small></div><Link href="/publications">查看动态 <ArrowRight size={14} /></Link></article>
-      <article className="stat-card"><div className="stat-icon violet"><RefreshCw size={20} /></div><div><span>云端每日同步</span><strong>未启用</strong><small>需要部署私有后端与数据库</small></div><span className="local-mode">本地</span></article>
+    <section className="minimal-intro">
+      <div><span className="eyebrow">PERSONAL ACADEMIC MAP</span><h1>研究者地图</h1><p>按研究方向浏览研究者分布；点击红点，为研究者添加标签和互动记录。</p></div>
+      <span className="researcher-count">{researchers.length} 位研究者</span>
     </section>
-
-    <div className="map-section-head">
-      <div className="segmented-control"><button className={selectedDirection === "all" ? "active" : ""} onClick={() => setSelectedDirection("all")}>全部方向</button>{data.directions.map((direction) => <button key={direction.id} className={selectedDirection === direction.id ? "active" : ""} onClick={() => setSelectedDirection(direction.id)}>{direction.name}</button>)}</div>
-      <div className="filter-actions"><label><Filter size={15} /><select value={tag} onChange={(event) => setTag(event.target.value)}><option value="all">全部标签</option>{data.tags.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select><ChevronDown size={14} /></label></div>
-    </div>
-
-    <div className="map-layout">
-      <MapPanel teachers={visibleTeachers} directions={data.directions} tags={data.tags} continent={continent} onContinentChange={setContinent} />
-      <aside className="map-list-panel">
-        <div className="panel-title"><div><span className="eyebrow">当前视图</span><h2>{continent === "全球" ? "全球学者" : continent}</h2></div><span>{visibleTeachers.length} 位</span></div>
-        <div className="teacher-scroll-list">{visibleTeachers.map((teacher) => <Link href={`/teacher?id=${teacher.id}`} className="teacher-list-item" key={teacher.id}><span className="avatar">{teacher.initials}</span><div><strong>{teacher.name}</strong><small>{teacher.institution}</small><em>{teacher.city} · {teacher.country}</em></div><span className="score">{teacher.relevance}%</span></Link>)}{visibleTeachers.length === 0 && <div className="empty-state"><p>当前筛选下没有老师</p><button onClick={() => { setTag("all"); setContinent("全球"); }}>清除筛选</button></div>}</div>
-      </aside>
-    </div>
-
-    <section className="dashboard-lower-grid">
-      <article className="content-card recent-papers"><div className="card-heading"><div><span className="eyebrow">LIVE UPDATES</span><h2>最近新增论文</h2></div><Link href="/publications">查看全部 <ArrowRight size={15} /></Link></div>{publications.slice(0, 4).map((paper) => <div className="paper-row" key={paper.id}><div className={paper.isNew ? "paper-date new" : "paper-date"}><strong>{paper.discoveredAt.slice(5)}</strong><span>{paper.isNew ? "NEW" : paper.year}</span></div><div className="paper-main"><strong>{paper.title}</strong><p>{paper.teacher.name} · {paper.venue} · 引用 {paper.citations}</p><div className="chip-row">{paper.directionIds.map((id) => <span className="chip" key={id}>{data.directions.find((item) => item.id === id)?.name}</span>)}</div></div><button className="icon-button"><ArrowRight size={16} /></button></div>)}</article>
-      <article className="content-card activity-card"><div className="card-heading"><div><span className="eyebrow">RUNTIME STATUS</span><h2>能力状态</h2></div><RefreshCw size={16} /></div><div className="timeline"><div><i className="green" /><span><strong>离线世界地图</strong><small>无需第三方瓦片服务，国内网络也可显示</small></span><time>可用</time></div><div><i className="blue" /><span><strong>OpenAlex 实时发现</strong><small>点击“自动发现老师”即可实际检索</small></span><time>可用</time></div><div><i className="orange" /><span><strong>跨设备同步与定时任务</strong><small>尚未部署私有后端</small></span><time>未配置</time></div></div><div className="next-sync"><Clock3 size={17} /><span><strong>数据保存位置</strong><small>当前浏览器或 Android App 的本地存储</small></span></div></article>
+    <section className="minimal-filters" aria-label="地图筛选">
+      <div className="direction-pills"><button className={directionId === "all" ? "active" : ""} onClick={() => setDirectionId("all")}>全部</button>{data.directions.map((direction) => <button key={direction.id} className={directionId === direction.id ? "active" : ""} onClick={() => setDirectionId(direction.id)}>{direction.name}</button>)}</div>
+      <label className="tag-filter"><Filter size={15} /><select value={tagId} onChange={(event) => setTagId(event.target.value)}><option value="all">全部标签</option>{data.tags.map((tag) => <option key={tag.id} value={tag.id}>{tag.name}</option>)}</select></label>
     </section>
-    {addOpen && <AddTeacherModal onClose={() => setAddOpen(false)} />}
-    {discoverOpen && <DiscoverModal onClose={() => setDiscoverOpen(false)} />}
+    <div className="minimal-map-layout">
+      <MapPanel teachers={researchers} directions={data.directions} tags={data.tags} continent={continent} onContinentChange={setContinent} />
+      <aside className="minimal-list"><div className="minimal-list-head"><strong>当前研究者</strong><span>{researchers.length}</span></div>{researchers.map((teacher) => <Link href={`/teacher?id=${teacher.id}`} className="minimal-researcher" key={teacher.id}><span className="avatar">{teacher.initials}</span><div><strong>{teacher.name}</strong><small>{teacher.institution}</small><em>{teacher.city} · {teacher.country}</em></div></Link>)}{researchers.length === 0 && <p className="minimal-empty">当前筛选没有研究者。</p>}</aside>
+    </div>
   </>;
 }

@@ -1,36 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowUpRight, BookOpen, Check, ExternalLink, HeartHandshake, LockKeyhole, Mail, MapPin, Pencil, RefreshCw, ShieldCheck, Star } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, CalendarDays, MapPin, Plus, Tag as TagIcon } from "lucide-react";
 import { useAcademicData } from "./data-provider";
 
 export function TeacherDetail({ id }: { id: string }) {
-  const { data, updateTeacher } = useAcademicData();
+  const { data, addInteraction, createTag, toggleTeacherTag } = useAcademicData();
   const teacher = data.teachers.find((item) => item.id === id);
-  const [editing, setEditing] = useState(false);
-  const [bio, setBio] = useState(teacher?.bio ?? "");
-  const [year, setYear] = useState("all");
-  const papers = useMemo(() => teacher?.publications.filter((paper) => year === "all" || String(paper.year) === year) ?? [], [teacher, year]);
-  if (!teacher) return <div className="large-empty"><h1>没有找到这位老师</h1><Link href="/teachers" className="button primary">返回资料库</Link></div>;
-  const saveBio = () => { updateTeacher(teacher.id, { bio, bioApproved: true, bioSource: "手动编辑 · 已锁定" }, ["bio"]); setEditing(false); };
+  const [newTag, setNewTag] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), location: "", eventName: "", content: "", hobbies: "", followUp: "" });
+  if (!teacher) return <div className="minimal-empty-page"><h1>没有找到这位研究者</h1><Link href="/" className="button primary">返回地图</Link></div>;
+  const records = data.interactions.filter((item) => item.teacherId === teacher.id);
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    addInteraction({ teacherId: teacher.id, date: form.date, location: form.location, eventName: form.eventName, type: "互动", content: form.content, hobbies: form.hobbies.split(/[、,，]/).map((item) => item.trim()).filter(Boolean), impression: "", followUp: form.followUp });
+    setForm({ date: new Date().toISOString().slice(0, 10), location: "", eventName: "", content: "", hobbies: "", followUp: "" });
+    setShowForm(false);
+  };
+  const addTag = () => {
+    const tagId = createTag(newTag);
+    if (tagId && !teacher.tagIds.includes(tagId)) toggleTeacherTag(teacher.id, tagId);
+    setNewTag("");
+  };
+
   return <>
-    <Link href="/teachers" className="back-link"><ArrowLeft size={16} />返回学者资料库</Link>
-    <section className="teacher-hero">
-      <span className="avatar hero-avatar">{teacher.initials}</span>
-      <div className="teacher-identity"><div className="teacher-title-row"><div><span className="eyebrow">CONFIRMED SCHOLAR</span><h1>{teacher.name}</h1><p>{teacher.englishName}</p></div><span className="confirmed"><ShieldCheck size={15} />已确认</span></div><h2>{teacher.title} · {teacher.department}</h2><p className="institution-line"><MapPin size={16} />{teacher.institution} · {teacher.city}, {teacher.country}</p><div className="chip-row">{teacher.directionIds.map((directionId) => <span className="chip" key={directionId}>{data.directions.find((item) => item.id === directionId)?.name}</span>)}{teacher.tagIds.map((tagId) => { const tag = data.tags.find((item) => item.id === tagId); return tag ? <span className="chip" key={tagId} style={{ color: tag.color, background: tag.background }}>{tag.name}</span> : null; })}</div></div>
-      <div className="teacher-hero-actions"><button className="button ghost" onClick={() => setEditing(true)}><Pencil size={16} />编辑资料</button><button className="button ghost" disabled title="部署私有后端后启用"><RefreshCw size={16} />同步需后端</button><Link href={`/interactions?teacher=${teacher.id}`} className="button primary"><HeartHandshake size={17} />我的互动记录</Link></div>
+    <Link href="/" className="back-link"><ArrowLeft size={16} />返回地图</Link>
+    <section className="minimal-profile">
+      <span className="avatar profile-avatar">{teacher.initials}</span>
+      <div><h1>{teacher.name}</h1><p>{teacher.title} · {teacher.institution}</p><small><MapPin size={14} />{teacher.city} · {teacher.country}</small></div>
     </section>
-    <div className="teacher-detail-grid">
-      <div className="teacher-detail-main">
-        <section className="content-card profile-section"><div className="card-heading"><div><span className="eyebrow">PROFILE</span><h2>个人简介</h2></div>{teacher.lockedFields.includes("bio") && <span className="locked"><LockKeyhole size={14} />人工锁定</span>}</div>{editing ? <div className="bio-editor"><textarea value={bio} onChange={(event) => setBio(event.target.value)} rows={5} /><div><button className="button ghost" onClick={() => setEditing(false)}>取消</button><button className="button primary" onClick={saveBio}><Check size={16} />保存并锁定</button></div></div> : <p className="bio-copy">{teacher.bio}</p>}<footer><span>来源：{teacher.bioSource}</span><span>更新：{teacher.lastUpdated}</span></footer></section>
-        <section className="content-card profile-section"><div className="card-heading"><div><span className="eyebrow">PUBLICATIONS</span><h2>论文列表 <small>{teacher.publications.length}</small></h2></div><select value={year} onChange={(event) => setYear(event.target.value)}><option value="all">全部年份</option><option value="2026">2026</option><option value="2025">2025</option></select></div>{papers.map((paper) => <article className="detail-paper" key={paper.id}><button className={paper.isImportant ? "star active" : "star"}><Star size={17} /></button><div><div className="paper-labels">{paper.isNew && <span className="new-badge">今日新增</span>}<span>{paper.year}</span><span>{paper.venue}</span></div><h3>{paper.title}</h3><p>{paper.authors}</p><footer><span>引用 {paper.citations}</span><span>来源：{paper.source}</span>{paper.doi && <span>DOI {paper.doi}</span>}</footer></div><button className="icon-button"><ArrowUpRight size={17} /></button></article>)}</section>
-      </div>
-      <aside className="teacher-detail-side">
-        <section className="content-card info-list"><span className="eyebrow">CONTACT</span><h2>联系与主页</h2>{teacher.email && <a href={`mailto:${teacher.email}`}><Mail size={16} /><span><small>邮箱</small>{teacher.email}</span></a>}{teacher.homepage && <a href={teacher.homepage} target="_blank"><ExternalLink size={16} /><span><small>个人主页</small>访问机构页面</span></a>}{teacher.scholarUrl && <a href={teacher.scholarUrl} target="_blank"><BookOpen size={16} /><span><small>Google Scholar</small>打开外部链接</span></a>}</section>
-        <section className="content-card identity-list"><span className="eyebrow">IDENTIFIERS</span><h2>学术身份</h2>{teacher.identities.map((identity) => <a href={identity.url} target="_blank" key={identity.source}><span><small>{identity.source}</small><strong>{identity.value}</strong></span><ExternalLink size={15} /></a>)}</section>
-        <section className="content-card sync-card"><div><RefreshCw size={19} /><span><strong>本地资料模式</strong><small>记录值：{teacher.lastSynced}</small></span></div><p>自动论文同步需要部署私有后端后才会运行。</p></section>
-      </aside>
+    <div className="minimal-detail-grid">
+      <section className="minimal-section">
+        <div className="section-heading"><div><span className="eyebrow">TAGS</span><h2>标签</h2></div></div>
+        <div className="selected-tags">{teacher.tagIds.length ? teacher.tagIds.map((id) => { const tag = data.tags.find((item) => item.id === id); return tag ? <button key={tag.id} className="active-tag" style={{ color: tag.color, background: tag.background }} onClick={() => toggleTeacherTag(teacher.id, tag.id)}>{tag.name} ×</button> : null; }) : <p>还没有标签。</p>}</div>
+        <div className="tag-choice-row">{data.tags.filter((tag) => !teacher.tagIds.includes(tag.id)).map((tag) => <button key={tag.id} onClick={() => toggleTeacherTag(teacher.id, tag.id)}><TagIcon size={13} />{tag.name}</button>)}</div>
+        <div className="new-tag-row"><input value={newTag} onChange={(event) => setNewTag(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addTag(); } }} placeholder="新建标签" /><button className="button ghost" onClick={addTag}>添加</button></div>
+      </section>
+      <section className="minimal-section interaction-section">
+        <div className="section-heading"><div><span className="eyebrow">PRIVATE NOTES</span><h2>互动记录</h2></div><button className="button primary" onClick={() => setShowForm((open) => !open)}><Plus size={16} />记录互动</button></div>
+        {showForm && <form className="minimal-interaction-form" onSubmit={submit}><div><label>日期<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} /></label><label>地点<input value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="城市或会场" /></label></div><label>活动 / 场景<input value={form.eventName} onChange={(event) => setForm({ ...form, eventName: event.target.value })} placeholder="例如：会议交流" /></label><label>记录<textarea rows={4} required value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="这次互动中值得记住的内容" /></label><div><label>爱好<input value={form.hobbies} onChange={(event) => setForm({ ...form, hobbies: event.target.value })} placeholder="逗号分隔" /></label><label>后续事项<input value={form.followUp} onChange={(event) => setForm({ ...form, followUp: event.target.value })} placeholder="下一步联系计划" /></label></div><button className="button primary">保存到本机</button></form>}
+        <div className="minimal-records">{records.map((record) => <article key={record.id}><time><CalendarDays size={14} />{record.date}</time><strong>{record.eventName || record.location || "互动记录"}</strong><p>{record.content}</p>{record.hobbies.length > 0 && <div className="chip-row">{record.hobbies.map((hobby) => <span className="chip" key={hobby}>{hobby}</span>)}</div>}{record.followUp && <small>后续：{record.followUp}</small>}</article>)}{records.length === 0 && !showForm && <p className="minimal-empty">还没有互动记录。</p>}</div>
+      </section>
     </div>
   </>;
 }
