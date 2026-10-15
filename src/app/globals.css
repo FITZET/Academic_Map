@@ -308,6 +308,7 @@ input, select, textarea { outline: none; }
 .inline-action { justify-self: start; display: inline-flex; align-items: center; gap: 7px; padding: 0; color: var(--navy); border: 0; background: transparent; font-size: 12px; font-weight: 650; }
 .api-config { display: grid; gap: 12px; padding: 15px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-soft); }
 .secret-input { display: flex; gap: 6px; }.secret-input input { flex: 1; background: var(--panel); }.secret-input button { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-size: 11px; }
+.secret-input .masked-key { -webkit-text-security: disc; }
 .simple-feedback, .simple-error { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--navy-soft); color: var(--navy-dark); font-size: 12px; line-height: 1.5; }.simple-error { color: var(--red); background: color-mix(in srgb, var(--red) 9%, var(--panel)); }
 .review-heading { margin: 20px 0 22px; }.review-heading h1 { margin: 0 0 7px; font: 500 clamp(30px, 4vw, 42px) Georgia, "Noto Serif SC", serif; }.review-heading p { margin: 0; color: var(--muted); font-size: 12px; }
 .review-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }

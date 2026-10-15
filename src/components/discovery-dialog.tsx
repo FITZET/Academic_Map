@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, KeyRound, Search, X } from "lucide-react";
-import { ARK_KEY_STORAGE, ARK_MODEL_STORAGE, DEFAULT_ARK_MODEL, discoverScholars } from "@/lib/doubao";
+import { Capacitor } from "@capacitor/core";
+import { Clipboard } from "@capacitor/clipboard";
+import { ARK_KEY_STORAGE, ARK_MODEL_STORAGE, DEFAULT_ARK_MODEL, LEGACY_DEFAULT_ARK_MODEL, discoverScholars, normalizeArkKey, testArkConnection } from "@/lib/doubao";
 import { useAcademicData } from "./data-provider";
 
 export function DiscoveryDialog({ directionId, onClose }: { directionId: string; onClose: () => void }) {
@@ -14,26 +16,52 @@ export function DiscoveryDialog({ directionId, onClose }: { directionId: string;
   const [showKey, setShowKey] = useState(false);
   const [configure, setConfigure] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
   const [found, setFound] = useState(false);
 
   useEffect(() => {
     setKey(window.localStorage.getItem(ARK_KEY_STORAGE) ?? "");
-    setModel(window.localStorage.getItem(ARK_MODEL_STORAGE) ?? DEFAULT_ARK_MODEL);
+    const savedModel = window.localStorage.getItem(ARK_MODEL_STORAGE);
+    if (savedModel === LEGACY_DEFAULT_ARK_MODEL) {
+      window.localStorage.setItem(ARK_MODEL_STORAGE, DEFAULT_ARK_MODEL);
+      setModel(DEFAULT_ARK_MODEL);
+      setMessage("已将旧版默认模型更新为 doubao-seed-evolving；如需使用其他模型，可在配置中修改。");
+    } else setModel(savedModel ?? DEFAULT_ARK_MODEL);
   }, []);
 
   const saveConfig = () => {
-    if (key.trim()) window.localStorage.setItem(ARK_KEY_STORAGE, key.trim());
+    const cleanKey = normalizeArkKey(key);
+    setKey(cleanKey);
+    if (cleanKey) window.localStorage.setItem(ARK_KEY_STORAGE, cleanKey);
     else window.localStorage.removeItem(ARK_KEY_STORAGE);
     window.localStorage.setItem(ARK_MODEL_STORAGE, model.trim() || DEFAULT_ARK_MODEL);
     setConfigure(false);
-    setMessage(key.trim() ? "API 配置已保存在本机。" : "API Key 已从本机删除。");
+    setMessage(cleanKey ? "API 配置已保存在本机。" : "API Key 已从本机删除。");
+  };
+
+  const pasteKey = async () => {
+    try {
+      const value = Capacitor.isNativePlatform() ? (await Clipboard.read()).value : await navigator.clipboard.readText();
+      const cleanKey = normalizeArkKey(value);
+      if (!cleanKey) throw new Error("empty");
+      setKey(cleanKey);
+      setMessage("已从剪贴板粘贴，请点击“保存到本机”。");
+    } catch { setMessage("无法读取剪贴板。请长按输入框粘贴，或允许应用读取剪贴板后重试。"); }
+  };
+
+  const testConnection = async () => {
+    if (!normalizeArkKey(key)) { setMessage("请先输入 API Key。"); return; }
+    setTesting(true); setMessage("");
+    try { await testArkConnection(key, model); setMessage("模型连接成功。联网搜索需要单独开通豆包搜索 Custom 版，点击“开始搜索”可继续验证。"); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "测试连接失败。"); }
+    finally { setTesting(false); }
   };
 
   const search = async () => {
     const direction = data.directions.find((item) => item.id === selectedId);
     if (!direction) return;
-    if (!key.trim()) { setConfigure(true); setMessage("请先输入豆包方舟 API Key。"); return; }
+    if (!normalizeArkKey(key)) { setConfigure(true); setMessage("请先输入豆包方舟 API Key。"); return; }
     setBusy(true); setMessage(""); setFound(false);
     try {
       const candidates = await discoverScholars(direction, key, model);
@@ -51,9 +79,9 @@ export function DiscoveryDialog({ directionId, onClose }: { directionId: string;
       <label className="simple-field">研究领域<select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>{data.directions.map((direction) => <option key={direction.id} value={direction.id}>{direction.name}</option>)}</select></label>
       <button className="inline-action" onClick={() => setConfigure((value) => !value)}><KeyRound size={15} />{key ? "修改豆包 API 配置" : "配置豆包 API Key"}</button>
       {configure && <div className="api-config">
-        <label className="simple-field">方舟 API Key<div className="secret-input"><input type={showKey ? "text" : "password"} autoComplete="off" value={key} onChange={(event) => setKey(event.target.value)} placeholder="输入你自己的 Ark API Key" /><button type="button" onClick={() => setShowKey((value) => !value)}>{showKey ? "隐藏" : "显示"}</button></div></label>
+        <label className="simple-field">方舟 API Key<div className="secret-input"><input type="text" inputMode="text" autoComplete="off" autoCapitalize="none" spellCheck={false} className={showKey ? "" : "masked-key"} value={key} onChange={(event) => setKey(event.target.value)} placeholder="长按粘贴或点右侧按钮" aria-label="方舟 API Key" /><button type="button" onClick={pasteKey}>粘贴</button><button type="button" onClick={() => setShowKey((value) => !value)}>{showKey ? "隐藏" : "显示"}</button></div></label>
         <label className="simple-field">模型 ID<input value={model} onChange={(event) => setModel(event.target.value)} placeholder={DEFAULT_ARK_MODEL} /></label>
-        <div className="simple-actions"><button className="button primary" onClick={saveConfig}>保存到本机</button><button className="button ghost" onClick={() => { setKey(""); window.localStorage.removeItem(ARK_KEY_STORAGE); setMessage("API Key 已删除。"); }}>删除 Key</button></div>
+        <div className="simple-actions"><button className="button primary" onClick={saveConfig}>保存到本机</button><button className="button ghost" onClick={testConnection} disabled={testing || busy}>{testing ? "正在测试…" : "测试连接"}</button><button className="button ghost" onClick={() => { setKey(""); window.localStorage.removeItem(ARK_KEY_STORAGE); setMessage("API Key 已删除。"); }}>删除 Key</button></div>
         <small className="simple-muted">Key 存储于本机应用数据中；使用网页预览时，存储于当前浏览器。请勿在公用设备上保存。搜索会产生方舟 API 费用。</small>
       </div>}
       <div className="simple-actions"><button className="button primary" onClick={search} disabled={busy || !selectedId}><Search size={15} />{busy ? "正在联网搜索…" : "开始搜索"}</button>{found && <Link className="button ghost" href="/review" onClick={onClose}>去审核 <ArrowRight size={15} /></Link>}</div>
